@@ -1,33 +1,35 @@
 //
-//  TBPlayer.m
-//  TBPlayer
+//  WZPlayer.m
+//  WZPlayer
 //
 //  Created by qianjianeng on 16/1/31.
 //  Copyright © 2016年 SF. All rights reserved.
 //
 
-#import "TBPlayer.h"
-#import "TBloaderURLConnection.h"
-#import "TBVideoRequestTask.h"
+#import "WZPlayer.h"
 #import "XCHudHelper.h"
+#import "WZAssetResourceLoader.h"
+
 #define kScreenHeight ([UIScreen mainScreen].bounds.size.height)
 #define kScreenWidth ([UIScreen mainScreen].bounds.size.width)
 #define IOS_VERSION  ([[[UIDevice currentDevice] systemVersion] floatValue])
-NSString *const kTBPlayerStateChangedNotification    = @"TBPlayerStateChangedNotification";
-NSString *const kTBPlayerProgressChangedNotification = @"TBPlayerProgressChangedNotification";
-NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgressChangedNotification";
+NSString *const kWZPlayerStateChangedNotification    = @"WZPlayerStateChangedNotification";
+NSString *const kWZPlayerProgressChangedNotification = @"WZPlayerProgressChangedNotification";
+NSString *const kWZPlayerLoadProgressChangedNotification = @"WZPlayerLoadProgressChangedNotification";
 
 
-@interface TBPlayer ()<TBloaderURLConnectionDelegate>
+@interface WZPlayer ()
+{
+    WZAssetResourceLoader *delegate;
+}
 
-@property (nonatomic        ) TBPlayerState  state;
+@property (nonatomic        ) WZPlayerState  state;
 @property (nonatomic        ) CGFloat        loadedProgress;//缓冲进度
 @property (nonatomic        ) CGFloat        duration;//视频总时间
 @property (nonatomic        ) CGFloat        current;//当前播放时间
 
 @property (nonatomic, strong) AVURLAsset     *videoURLAsset;
 @property (nonatomic, strong) AVAsset        *videoAsset;
-@property (nonatomic, strong) TBloaderURLConnection *resouerLoader;
 @property (nonatomic, strong) AVPlayer       *player;
 @property (nonatomic, strong) AVPlayerItem   *currentPlayerItem;
 @property (nonatomic, strong) AVPlayerLayer  *currentPlayerLayer;
@@ -49,7 +51,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
 
 @end
 
-@implementation TBPlayer
+@implementation WZPlayer
 
 + (instancetype)sharedInstance {
     static dispatch_once_t onceToken;
@@ -69,7 +71,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
         _loadedProgress = 0;
         _duration = 0;
         _current  = 0;
-        _state = TBPlayerStateStopped;
+        _state = WZPlayerStateStopped;
         _stopWhenAppDidEnterBackground = YES;
     }
     return self;
@@ -90,6 +92,18 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     [self.player removeTimeObserver:self.playbackTimeObserver];
     self.playbackTimeObserver = nil;
     self.currentPlayerItem = nil;
+}
+
+/*!
+ *  Create and setup the custom delegae instance.
+ */
+- (void) configDelegates:(AVURLAsset*) asset
+{
+    //Setup the delegate for custom URL.
+    self->delegate = [[WZAssetResourceLoader alloc] init];
+    AVAssetResourceLoader *resourceLoader = asset.resourceLoader;
+    [resourceLoader setDelegate:delegate queue:dispatch_queue_create("WZAssetResource loader", nil)];
+    
 }
 
 - (void)playWithUrl:(NSURL *)url showView:(UIView *)showView
@@ -120,11 +134,8 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
         
     } else {   //ios7以上采用resourceLoader给播放器补充数据
         
-        self.resouerLoader          = [[TBloaderURLConnection alloc] init];
-        self.resouerLoader.delegate = self;
-        NSURL *playUrl              = [_resouerLoader getSchemeHLSURL:url];
-        self.videoURLAsset             = [AVURLAsset URLAssetWithURL:playUrl options:nil];
-        [_videoURLAsset.resourceLoader setDelegate:_resouerLoader queue:dispatch_get_main_queue()];
+        self.videoURLAsset             = [AVURLAsset URLAssetWithURL:url options:nil];
+        [self configDelegates:self.videoURLAsset];
         self.currentPlayerItem          = [AVPlayerItem playerItemWithAsset:_videoURLAsset];
         
         if (!self.player) {
@@ -151,23 +162,23 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playerItemPlaybackStalled:) name:AVPlayerItemPlaybackStalledNotification object:self.currentPlayerItem];
 
     
-    // 本地文件不设置TBPlayerStateBuffering状态
+    // 本地文件不设置WZPlayerStateBuffering状态
     if ([url.scheme isEqualToString:@"file"]) {
         
-        // 如果已经在TBPlayerStatePlaying，则直接发通知，否则设置状态
-        if (self.state == TBPlayerStatePlaying) {
-            [[NSNotificationCenter defaultCenter] postNotificationName:kTBPlayerStateChangedNotification object:nil];
+        // 如果已经在WZPlayerStatePlaying，则直接发通知，否则设置状态
+        if (self.state == WZPlayerStatePlaying) {
+            [[NSNotificationCenter defaultCenter] postNotificationName:kWZPlayerStateChangedNotification object:nil];
         } else {
-            self.state = TBPlayerStatePlaying;
+            self.state = WZPlayerStatePlaying;
         }
         
     } else {
         
-        // 如果已经在TBPlayerStateBuffering，则直接发通知，否则设置状态
-        if (self.state == TBPlayerStateBuffering) {
-            [[NSNotificationCenter defaultCenter] postNotificationName:kTBPlayerStateChangedNotification object:nil];
+        // 如果已经在WZPlayerStateBuffering，则直接发通知，否则设置状态
+        if (self.state == WZPlayerStateBuffering) {
+            [[NSNotificationCenter defaultCenter] postNotificationName:kWZPlayerStateChangedNotification object:nil];
         } else {
-            self.state = TBPlayerStateBuffering;
+            self.state = WZPlayerStateBuffering;
         }
         
     }
@@ -181,7 +192,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     
     [[XCHudHelper sharedInstance] showHudOnView:_showView caption:nil image:nil acitivity:YES autoHideTime:0];
     
-    [[NSNotificationCenter defaultCenter] postNotificationName:kTBPlayerProgressChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:kWZPlayerProgressChangedNotification object:nil];
     
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(halfScreen)];
     
@@ -205,7 +216,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
 
 - (void)seekToTime:(CGFloat)seconds
 {
-    if (self.state == TBPlayerStateStopped) {
+    if (self.state == WZPlayerStateStopped) {
         return;
     }
     
@@ -217,7 +228,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
         self.isPauseByUser = NO;
         [self.player play];
         if (!self.currentPlayerItem.isPlaybackLikelyToKeepUp) {
-            self.state = TBPlayerStateBuffering;
+            self.state = WZPlayerStateBuffering;
             [[XCHudHelper sharedInstance] showHudOnView:_showView caption:nil image:nil acitivity:YES autoHideTime:0];
         }
         
@@ -229,16 +240,16 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     if (!self.currentPlayerItem) {
         return;
     }
-    if (self.state == TBPlayerStatePlaying) {
+    if (self.state == WZPlayerStatePlaying) {
         [_stopButton setImage:[UIImage imageNamed:@"icon_play"] forState:UIControlStateNormal];
         [_stopButton setImage:[UIImage imageNamed:@"icon_play_hl"] forState:UIControlStateHighlighted];
         [self.player pause];
-        self.state = TBPlayerStatePause;
-    } else if (self.state == TBPlayerStatePause) {
+        self.state = WZPlayerStatePause;
+    } else if (self.state == WZPlayerStatePause) {
         [_stopButton setImage:[UIImage imageNamed:@"icon_pause"] forState:UIControlStateNormal];
         [_stopButton setImage:[UIImage imageNamed:@"icon_pause_hl"] forState:UIControlStateHighlighted];
         [self.player play];
-        self.state = TBPlayerStatePlaying;
+        self.state = WZPlayerStatePlaying;
     }
     self.isPauseByUser = YES;
 }
@@ -263,7 +274,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     [_stopButton setImage:[UIImage imageNamed:@"icon_play"] forState:UIControlStateNormal];
     [_stopButton setImage:[UIImage imageNamed:@"icon_play_hl"] forState:UIControlStateHighlighted];
     self.isPauseByUser = YES;
-    self.state = TBPlayerStatePause;
+    self.state = WZPlayerStatePause;
     [self.player pause];
 }
 
@@ -273,10 +284,10 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     self.loadedProgress = 0;
     self.duration = 0;
     self.current  = 0;
-    self.state = TBPlayerStateStopped;
+    self.state = WZPlayerStateStopped;
     [self.player pause];
     [self releasePlayer];
-    [[NSNotificationCenter defaultCenter] postNotificationName:kTBPlayerProgressChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:kWZPlayerProgressChangedNotification object:nil];
 }
 
 
@@ -296,7 +307,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
 {
     if (self.stopWhenAppDidEnterBackground) {
         [self pause];
-        self.state = TBPlayerStatePause;
+        self.state = WZPlayerStatePause;
         self.isPauseByUser = NO;
     }
 }
@@ -304,7 +315,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
 {
     if (!self.isPauseByUser) {
         [self resume];
-        self.state = TBPlayerStatePlaying;
+        self.state = WZPlayerStatePlaying;
     }
 }
 
@@ -343,7 +354,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     } else if ([keyPath isEqualToString:@"playbackBufferEmpty"]) { //监听播放器在缓冲数据的状态
         [[XCHudHelper sharedInstance] showHudOnView:_showView caption:nil image:nil acitivity:YES autoHideTime:0];
         if (playerItem.isPlaybackBufferEmpty) {
-            self.state = TBPlayerStateBuffering;
+            self.state = WZPlayerStateBuffering;
             [self bufferingSomeSecond];
         }
     }
@@ -366,7 +377,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
         [strongSelf updateCurrentTime:current];
         [strongSelf updateVideoSlider:current];
         if (strongSelf.isPauseByUser == NO) {
-            strongSelf.state = TBPlayerStatePlaying;
+            strongSelf.state = WZPlayerStatePlaying;
         }
         
         // 不相等的时候才更新，并发通知，否则seek时会继续跳动
@@ -375,7 +386,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
             if (strongSelf.current > strongSelf.duration) {
                 strongSelf.duration = strongSelf.current;
             }
-            [[NSNotificationCenter defaultCenter] postNotificationName:kTBPlayerProgressChangedNotification object:nil];
+            [[NSNotificationCenter defaultCenter] postNotificationName:kWZPlayerProgressChangedNotification object:nil];
         }
         
     }];
@@ -429,12 +440,12 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     }
     
     _loadedProgress = loadedProgress;
-    [[NSNotificationCenter defaultCenter] postNotificationName:kTBPlayerLoadProgressChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:kWZPlayerLoadProgressChangedNotification object:nil];
 }
 
-- (void)setState:(TBPlayerState)state
+- (void)setState:(WZPlayerState)state
 {
-    if (state != TBPlayerStateBuffering) {
+    if (state != WZPlayerStateBuffering) {
         [[XCHudHelper sharedInstance] hideHud];
     }
 
@@ -443,7 +454,7 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     }
     
     _state = state;
-    [[NSNotificationCenter defaultCenter] postNotificationName:kTBPlayerStateChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:kWZPlayerStateChangedNotification object:nil];
     
 }
 
@@ -583,45 +594,6 @@ NSString *const kTBPlayerLoadProgressChangedNotification = @"TBPlayerLoadProgres
     [self.playSlider setValue:currentSecond animated:YES];
 }
 
-
-#pragma mark - TBloaderURLConnectionDelegate
-
-- (void)didFinishLoadingWithTask:(TBVideoRequestTask *)task
-{
-    _isFinishLoad = task.isFinishLoad;
-}
-
-//网络中断：-1005
-//无网络连接：-1009
-//请求超时：-1001
-//服务器内部错误：-1004
-//找不到服务器：-1003
-- (void)didFailLoadingWithTask:(TBVideoRequestTask *)task WithError:(NSInteger)errorCode
-{
-    NSString *str = nil;
-    switch (errorCode) {
-        case -1001:
-            str = @"请求超时";
-            break;
-        case -1003:
-        case -1004:
-            str = @"服务器错误";
-            break;
-        case -1005:
-            str = @"网络中断";
-            break;
-        case -1009:
-            str = @"无网络连接";
-            break;
-            
-        default:
-            str = [NSString stringWithFormat:@"%@", @"(_errorCode)"];
-            break;
-    }
-    
-    [XCHudHelper showMessage:str];
-    
-}
 
 #pragma mark - color
 - (UIColor*)colorWithHex:(NSInteger)hexValue alpha:(CGFloat)alphaValue

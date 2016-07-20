@@ -1,6 +1,6 @@
 //
-//  TBPlayer.h
-//  TBPlayer
+//  WZPlayer.h
+//  WZPlayer
 //
 //  Created by qianjianeng on 16/1/31.
 //  Copyright © 2016年 SF. All rights reserved.
@@ -10,21 +10,21 @@
 #import <AVFoundation/AVFoundation.h>
 #import <UIKit/UIKit.h>
 
-FOUNDATION_EXPORT NSString *const kTBPlayerStateChangedNotification;
-FOUNDATION_EXPORT NSString *const kTBPlayerProgressChangedNotification;
-FOUNDATION_EXPORT NSString *const kTBPlayerLoadProgressChangedNotification;
+FOUNDATION_EXPORT NSString *const kWZPlayerStateChangedNotification;
+FOUNDATION_EXPORT NSString *const kWZPlayerProgressChangedNotification;
+FOUNDATION_EXPORT NSString *const kWZPlayerLoadProgressChangedNotification;
 
 //播放器的几种状态
-typedef NS_ENUM(NSInteger, TBPlayerState) {
-    TBPlayerStateBuffering = 1,
-    TBPlayerStatePlaying   = 2,
-    TBPlayerStateStopped   = 3,
-    TBPlayerStatePause     = 4
+typedef NS_ENUM(NSInteger, WZPlayerState) {
+    WZPlayerStateBuffering = 1,
+    WZPlayerStatePlaying   = 2,
+    WZPlayerStateStopped   = 3,
+    WZPlayerStatePause     = 4
 };
 
-@interface TBPlayer : NSObject
+@interface WZPlayer : NSObject
 
-@property (nonatomic, readonly) TBPlayerState state;
+@property (nonatomic, readonly) WZPlayerState state;
 @property (nonatomic, readonly) CGFloat       loadedProgress;   //缓冲进度
 @property (nonatomic, readonly) CGFloat       duration;         //视频总时间
 @property (nonatomic, readonly) CGFloat       current;          //当前播放时间

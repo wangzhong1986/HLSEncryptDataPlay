@@ -7,7 +7,8 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <AVFoundation/AVAssetResourceLoader.h>
 
-@interface WZAssetResourceLoader : NSObject
+@interface WZAssetResourceLoader : NSObject<AVAssetResourceLoaderDelegate>
 
 @end
